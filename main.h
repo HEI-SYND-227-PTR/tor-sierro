@@ -6,7 +6,7 @@
 /// \date  2018-02
 //////////////////////////////////////////////////////////////////////////////////
 #include "stm32f7xx_hal.h"
-
+#include "cmsis_os2.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdbool.h>
@@ -64,14 +64,14 @@ struct TOKENINTERFACE
 {
 	uint8_t		myAddress;						///< my current address
 	uint8_t		currentView;					///< the current view on LCD
-	bool_t		debugOnline;					///< is debug station ON
-	bool_t		connected;						///< are we connected
-	bool_t		broadcastTime;				///< is broadcast time active
-	bool_t		needReceiveCRCError;	///< debug has to receive error
-	bool_t		needSendCRCError;			///< debug has to send error
+	bool		debugOnline;					///< is debug station ON
+	bool		connected;						///< are we connected
+	bool		broadcastTime;				///< is broadcast time active
+	bool		needReceiveCRCError;	///< debug has to receive error
+	bool		needSendCRCError;			///< debug has to send error
 	uint32_t	debugSAPI;						///< current debug SAPI
 	uint32_t	debugAddress;					///< current debug address
-	bool_t		debugMsgToSend;				///< did debug have to send a message
+	bool		debugMsgToSend;				///< did debug have to send a message
 	uint32_t	destinationAddress;		///< current destination address
 	uint8_t		station_list[15];			///< 0 to 15
 };
