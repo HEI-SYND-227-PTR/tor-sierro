@@ -19,6 +19,7 @@
 #define DEBUG_MODE				1					// mode is physical line (0) or debug (1)
 #define MYADDRESS   			3					// your address choice (table number)
 #define MAX_BLOCK_SIZE 		100				// size max for a frame
+#define MAX_STATION 			16				// number max of station in the network
 
 //--------------------------------------------------------------------------------
 // Constants to NOT change for the system working
@@ -116,4 +117,12 @@ struct queueMsg_t
 	void * anyPtr;					///< the pointer to message (if any)
 	uint8_t	addr;						///< the source or destination address
 	uint8_t sapi;						///< the source or destination SAPI
+};
+//--------------------------------------------------------------------------------
+// Token structure
+//--------------------------------------------------------------------------------
+struct token_t
+{
+	uint8_t destination;
+	uint8_t states[MAX_STATION];
 };
