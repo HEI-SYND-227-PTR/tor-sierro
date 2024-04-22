@@ -7,6 +7,8 @@
 
 void MacReceiver(void *argument)
 {
+	
+	//check token tag to detect a token frame 
 
 }
 

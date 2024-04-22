@@ -50,6 +50,7 @@ extern osMessageQueueId_t  queue_timeS_id;
 extern osMessageQueueId_t  queue_chatS_id;
 extern osMessageQueueId_t  queue_keyboard_id;
 extern osMessageQueueId_t  queue_usartR_id;
+extern osMessageQueueId_t  queue_macS_sec_id;
 extern osEventFlagsId_t  	eventFlag_id;
 //--------------------------------------------------------------------------------
 // functions used in more than one file

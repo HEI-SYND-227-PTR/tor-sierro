@@ -40,6 +40,7 @@ osMessageQueueId_t queue_timeS_id;		//not used
 osMessageQueueId_t queue_lcd_id;
 osMessageQueueId_t queue_keyboard_id;	//not used
 osMessageQueueId_t queue_usartR_id;
+osMessageQueueId_t  queue_macS_sec_id;
 
 const osMessageQueueAttr_t queue_macR_attr = {
 	.name = "MAC_RECEIVER"
@@ -73,6 +74,9 @@ const osMessageQueueAttr_t queue_keyboard_attr = {
 };
 const osMessageQueueAttr_t queue_usartR_attr = {
 	.name = "USART_RECEIV"
+};
+const osMessageQueueAttr_t queue_macS_sec_attr = {
+	.name = "MAC_SENDER_SECONDARY"
 };
 //--------------------------------------------------------------------------------
 // External threads id, functions and attributes
@@ -379,6 +383,7 @@ int main(void)
 	queue_macR_id = osMessageQueueNew(2,sizeof(struct queueMsg_t),&queue_macR_attr);
 	queue_phyS_id = osMessageQueueNew(2,sizeof(struct queueMsg_t),&queue_phyS_attr);
 	queue_macS_id = osMessageQueueNew(2,sizeof(struct queueMsg_t),&queue_macS_attr);
+	queue_macS_sec_id = osMessageQueueNew(2,sizeof(struct queueMsg_t),&queue_macS_sec_attr);
 	queue_dbg_id = osMessageQueueNew(2,sizeof(struct queueMsg_t),&queue_dbg_attr);
 	queue_chatR_id = osMessageQueueNew(2,sizeof(struct queueMsg_t),&queue_chatR_attr);
 	queue_chatS_id = osMessageQueueNew(2,sizeof(struct queueMsg_t),&queue_chatS_attr);
