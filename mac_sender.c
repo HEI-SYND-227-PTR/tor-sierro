@@ -2,21 +2,20 @@
 #include <stdio.h>
 
 
-#define TIMEOUT_QUEUE 100
 
 //prototypes 
-void checkMsg(struct queueMsg_t ** msg);
-void sendMsg(struct queueMsg_t ** msg);
-void saveMsg(struct queueMsg_t ** msg);
-void getSavedMsg(struct queueMsg_t ** msg);
+void checkMsg(struct queueMsg_t * msg);
+void sendMsg(struct queueMsg_t * msg);
+void saveMsg(struct queueMsg_t * msg);
+void getSavedMsg(struct queueMsg_t * msg);
 void sendSecondaryQueue();
 struct token_t* getToken();
 
 //global variable
-bool tokenOwned = 0;
-bool isToken = 0;
+bool tokenOwned = false;
+bool isToken = false;
 
-struct queueMsg_t	** token;
+struct queueMsg_t	* token;
 
 //--------------------------------------------------------------------------------
 // Thread mac sender
@@ -24,8 +23,8 @@ struct queueMsg_t	** token;
 
 void MacSender(void *argument)
 {
-	struct queueMsg_t **msg;
-	struct TOKENINTERFACE *gTokenInterface;
+	struct queueMsg_t msg;
+	struct queueMsg_t *msg1;
 	
 	bool reading = true;
 	bool sending = true;
@@ -38,19 +37,19 @@ void MacSender(void *argument)
 		
 		while(reading)
 		{
-			 
-			switch (osMessageQueueGet(queue_macS_id, msg, NULL, TIMEOUT_QUEUE)) //read entry queue
+			osStatus_t status = osMessageQueueGet(queue_macS_id, &msg, NULL, osWaitForever);
+			printf("%d\r\n", status);
+			switch (status) //read entry queue
 			{
 				case osOK : 					//queue not empty
 					if(tokenOwned)
 					{
 						//send it
-						//sendMsg(msg);
+						//sendMsg(&msg);
 					} 
 					else 
 					{
-						//save it in the other queue
-						//saveMsg(msg);
+						checkMsg(&msg);
 					}
 					break;
 				
@@ -58,7 +57,7 @@ void MacSender(void *argument)
 					if(tokenOwned)
 					{
 						//give the token
-						sendMsg(token);
+						//sendMsg(token);
 					} 
 					else 
 					{
@@ -78,9 +77,9 @@ void MacSender(void *argument)
 // Manage message
 //--------------------------------------------------------------------------------
 
-void checkMsg(struct queueMsg_t ** msg)
+void checkMsg(struct queueMsg_t * msg)
 {
-	switch((*msg)->type) 
+	switch(msg->type) 
 		{
 			case NEW_TOKEN:
 				if(!isToken)
@@ -91,8 +90,8 @@ void checkMsg(struct queueMsg_t ** msg)
 					getToken()->states[MYADDRESS] = (gTokenInterface.connected<<CHAT_SAPI) & (gTokenInterface.broadcastTime<<TIME_SAPI);
 					isToken = true;
 					//prepare and send the token
-					(*msg)->type = TOKEN;
-					(*msg)->anyPtr = (void*) token;
+					msg->type = TOKEN;
+					msg->anyPtr = (void*) token;
 					sendMsg(msg);
 					tokenOwned = false;
 				}
@@ -130,7 +129,7 @@ void checkMsg(struct queueMsg_t ** msg)
 
 //here it buil the msg and put in the queue of the pyhsic sender
 //free the part of msg
-void sendMsg(struct queueMsg_t ** msg)
+void sendMsg(struct queueMsg_t * msg)
 {
 	bool sending = true;
 	while(sending)
@@ -158,13 +157,13 @@ void sendMsg(struct queueMsg_t ** msg)
 
 void sendSecondaryQueue()
 {
-	struct queueMsg_t ** msg;
+	struct queueMsg_t * msg;
 	getSavedMsg(msg);
 	sendMsg(msg);
 }
 
 //saved message getted from the mac sender queue when there isn't token
-void saveMsg(struct queueMsg_t ** msg)
+void saveMsg(struct queueMsg_t * msg)
 {
 	bool saving = true;
 	while(saving)
@@ -187,7 +186,7 @@ void saveMsg(struct queueMsg_t ** msg)
 }
 
 //get saved message 
-void getSavedMsg(struct queueMsg_t ** msg)
+void getSavedMsg(struct queueMsg_t * msg)
 {
 	bool getSaving = true;
 	while(getSaving)
@@ -216,6 +215,6 @@ void getSavedMsg(struct queueMsg_t ** msg)
 
 struct token_t * getToken()
 {
-	return ((struct token_t*)(*token)->anyPtr);
+	return ((struct token_t*)token->anyPtr);
 }
 

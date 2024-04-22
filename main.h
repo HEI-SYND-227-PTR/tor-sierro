@@ -20,6 +20,9 @@
 #define MYADDRESS   			3					// your address choice (table number)
 #define MAX_BLOCK_SIZE 		100				// size max for a frame
 #define MAX_STATION 			16				// number max of station in the network
+//perso
+#define TIMEOUT_QUEUE 		0U
+
 
 //--------------------------------------------------------------------------------
 // Constants to NOT change for the system working
@@ -120,10 +123,10 @@ struct queueMsg_t
 	uint8_t sapi;						///< the source or destination SAPI
 };
 //--------------------------------------------------------------------------------
-// Token structure
+// Token structur
 //--------------------------------------------------------------------------------
 struct token_t
 {
-	uint8_t destination;
+	uint8_t tag;
 	uint8_t states[MAX_STATION];
 };

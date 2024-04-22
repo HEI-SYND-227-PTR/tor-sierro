@@ -383,7 +383,7 @@ int main(void)
 	queue_macR_id = osMessageQueueNew(2,sizeof(struct queueMsg_t),&queue_macR_attr);
 	queue_phyS_id = osMessageQueueNew(2,sizeof(struct queueMsg_t),&queue_phyS_attr);
 	queue_macS_id = osMessageQueueNew(2,sizeof(struct queueMsg_t),&queue_macS_attr);
-	queue_macS_sec_id = osMessageQueueNew(2,sizeof(struct queueMsg_t),&queue_macS_sec_attr);
+	queue_macS_sec_id = osMessageQueueNew(10,sizeof(struct queueMsg_t),&queue_macS_sec_attr);
 	queue_dbg_id = osMessageQueueNew(2,sizeof(struct queueMsg_t),&queue_dbg_attr);
 	queue_chatR_id = osMessageQueueNew(2,sizeof(struct queueMsg_t),&queue_chatR_attr);
 	queue_chatS_id = osMessageQueueNew(2,sizeof(struct queueMsg_t),&queue_chatS_attr);
