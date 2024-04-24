@@ -16,7 +16,7 @@ void updateToken();
 bool tokenOwned = false;
 bool isToken = false;
 
-struct queueMsg_t	* token;
+struct queueMsg_t * token;
 
 //--------------------------------------------------------------------------------
 // Thread mac sender
@@ -25,7 +25,9 @@ struct queueMsg_t	* token;
 void MacSender(void *argument)
 {
 	struct queueMsg_t msg;
-	struct queueMsg_t *msg1;
+	
+	token = osMemoryPoolAlloc(memPool, osWaitForever);
+	memset((void *)token, 0, sizeof(*token));
 	
 	bool reading = true;
 	bool sending = true;
@@ -58,6 +60,7 @@ void MacSender(void *argument)
 					{
 						//give the token
 						sendMsg(token);
+						tokenOwned = false;
 					} 
 					else 
 					{
@@ -85,6 +88,9 @@ void checkMsg(struct queueMsg_t * msg)
 				if(!isToken)
 				{
 					printf("NEW TOKEN\r\n");
+					//alocation for new token
+					token->anyPtr = osMemoryPoolAlloc(memPool,osWaitForever);
+					memset((void *)token->anyPtr, 0, TOKENSIZE-2);
 					//generate new token and I owned the token
 					gTokenInterface.broadcastTime = true;
 					gTokenInterface.connected = true;
@@ -93,7 +99,7 @@ void checkMsg(struct queueMsg_t * msg)
 					isToken = true;
 					//prepare and send the token
 					msg->type = TOKEN;
-					msg->anyPtr = (void*) token;
+					msg->anyPtr = (void*) token->anyPtr;
 					sendMsg(msg);
 					tokenOwned = false;
 				}
@@ -188,7 +194,6 @@ void saveMsg(struct queueMsg_t * msg)
 		}
 	}
 }
-
 //get saved message 
 void getSavedMsg(struct queueMsg_t * msg)
 {

@@ -31,6 +31,7 @@ void MacReceiver(void *argument)
 					{
 						//send it to the mac sender and change msg type
 						msg.type = TOKEN;
+						sendMessage(&msg);
 						printf("RECEIVE TOKEN\r\n");
 					}
 					else
@@ -40,7 +41,7 @@ void MacReceiver(void *argument)
 					break;
 				
 				default:
-					printf("RECEIVE NOTHING (%d\r\n)", status);
+					//printf("RECEIVE NOTHING (%d)\r\n", status);
 					break;
 			}
 		}
@@ -91,18 +92,15 @@ void putNextQueue(struct queueMsg_t *msg, osMessageQueueId_t queue)
 	bool sending = true;
 	while(sending)
 	{
-		switch(osMessageQueuePut(queue, msg, osPriorityNormal, TIMEOUT_QUEUE))
+		osStatus_t status = osMessageQueuePut(queue, msg, osPriorityNormal, osWaitForever);
+		switch(status)
 		{
 			case osOK : 					//msg send
 				sending = false;
 				break;
-				
-			case osErrorResource : //msg not send (queue full)
-				//make a longer timeout
-				break;
 			
 			default:
-				//do nothing
+				printf("CAN NOT PUT IN THE QUEUE (%d)\r\n", status);
 				break;
 		}
 	}
