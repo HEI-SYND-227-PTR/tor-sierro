@@ -4,7 +4,7 @@
 
 
 //prototypes 
-void checkMsg(struct queueMsg_t * msg);
+void sendPrimaryQueue(struct queueMsg_t * msg);
 void sendMsg(struct queueMsg_t * msg);
 void saveMsg(struct queueMsg_t * msg);
 void getSavedMsg(struct queueMsg_t * msg);
@@ -29,48 +29,77 @@ void MacSender(void *argument)
 	token = osMemoryPoolAlloc(memPool, osWaitForever);
 	memset((void *)token, 0, sizeof(*token));
 	
-	bool reading = true;
-	bool sending = true;
+	bool process_msg = false;
+	bool end_process_msg = false;
 	
 	while(1)
 	{
 		//----------------------------------------------------------------------------
-		// Read queue					
+		// Manage entry message queue					
 		//----------------------------------------------------------------------------
 		
-		while(reading)
+		//test if the token is owned and when it must send
+		if(osMessageQueueGetCount(queue_macS_id)!= 0)
 		{
-			osStatus_t status = osMessageQueueGet(queue_macS_id, &msg, NULL, TIMEOUT_QUEUE);
-			switch (status) //read entry queue
+			//get the queue
+			osMessageQueueGet(queue_macS_id, &msg, NULL, osWaitForever);
+			if(tokenOwned)
 			{
-				case osOK : 					//queue not empty
-					if(tokenOwned)
-					{
-						//send it
-						//sendMsg(&msg);
-					} 
-					else 
-					{
-						checkMsg(&msg);
-					}
-					break;
+				//check the message and send it if the secondary queue is empty
+				checkMsg(&msg);
+			}
+			else
+			{
 				
-				case osErrorResource : //queue empty
-					if(tokenOwned)
-					{
-						//give the token
-						sendMsg(token);
-						tokenOwned = false;
-					} 
-					else 
-					{
-						//do nothing
-					}
-					break;
-				
-				default:
-					//do nothing
-					break;
+			}
+			
+		}
+		else if(osMessageQueueGetCount(queue_macS_sec_id) != 0)
+		{
+			if(tokenOwned)
+			{
+				sendSecondaryQueue();//process the first message on the secondary queue
+			}
+		}
+		else
+		{
+			if(tokenOwned)
+			{
+				//give the token
+				sendMsg(token);
+				tokenOwned = false;
+			}
+		}
+		
+		
+		
+		if(tokenOwned)
+		{
+			if(osMessageQueueGetCount(queue_macS_sec_id) != 0)
+			{
+				sendSecondaryQueue();//process the first message on the secondary queue
+			}
+			else if(osMessageQueueGetCount(queue_macS_id)!= 0)
+			{
+				sendPrimaryQueue();
+			}
+			else
+			{
+				sendMsg(token);
+				tokenOwned = false;
+			}
+		}
+		else
+		{
+			osMessageQueueGet(queue_macS_id, &msg, NULL, osWaitForever);
+			if(isToken)
+			{
+				saveMsg(&msg);	
+			}
+			else
+			{
+				//todo : make a function to generate a token
+				checkMsg(&msg);//create new token
 			}
 		}
 	}
@@ -80,7 +109,7 @@ void MacSender(void *argument)
 // Manage message
 //--------------------------------------------------------------------------------
 
-void checkMsg(struct queueMsg_t * msg)
+void sendPrimaryQueue(struct queueMsg_t * msg)
 {
 	switch(msg->type) 
 		{
@@ -109,12 +138,7 @@ void checkMsg(struct queueMsg_t * msg)
 				}
 				break;
 			case TOKEN:
-				if(tokenOwned)
-				{
-					//chit!!!
-					printf("-token received (own already a token)\r\n");
-				}
-				else
+				if(!tokenOwned)
 				{
 					//token receive from other and I keep it
 					token = msg;
@@ -122,7 +146,11 @@ void checkMsg(struct queueMsg_t * msg)
 					updateToken();
 					isToken = true;
 					tokenOwned = true;
-					
+				}
+				else
+				{
+					//chit!!!
+					printf("-token received (own already a token)\r\n");
 				}
 				break;
 				
