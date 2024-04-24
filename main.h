@@ -125,8 +125,26 @@ struct queueMsg_t
 //--------------------------------------------------------------------------------
 // Token structur
 //--------------------------------------------------------------------------------
+
+union station
+{
+	struct
+	{
+		bool_t bit0 : 1;
+		bool_t chat : 1;
+		bool_t bit2 : 1;
+		bool_t time : 1;
+		bool_t bit4 : 1;
+		bool_t bit5 : 1;
+		bool_t bit6 : 1;
+		bool_t bit7 : 1;
+	};
+	uint8_t raw : 8;
+};
+
 struct token_t
 {
 	uint8_t tag;
-	uint8_t states[MAX_STATION];
+	union station states[MAX_STATION];
 };
+

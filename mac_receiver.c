@@ -22,8 +22,7 @@ void MacReceiver(void *argument)
 		//read the input queue
 		while(reading)
 		{
-			osStatus_t status = osMessageQueueGet(queue_macR_id, &msg, NULL, osWaitForever);
-			//printf("%d\r\n", status);
+			osStatus_t status = osMessageQueueGet(queue_macR_id, &msg, NULL, TIMEOUT_QUEUE);
 			switch (status) //read entry queue
 			{
 				case osOK : 					//queue not empty
@@ -32,19 +31,16 @@ void MacReceiver(void *argument)
 					{
 						//send it to the mac sender and change msg type
 						msg.type = TOKEN;
+						printf("RECEIVE TOKEN\r\n");
 					}
 					else
 					{
-						
+						printf("RECEIVE MESSAGE\r\n");
 					}
 					break;
 				
-				case osErrorResource : //queue empty
-					//do nothing
-					break;
-				
 				default:
-					//do nothing
+					printf("RECEIVE NOTHING (%d\r\n)", status);
 					break;
 			}
 		}

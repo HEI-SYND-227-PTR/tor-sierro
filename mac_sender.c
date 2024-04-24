@@ -9,7 +9,8 @@ void sendMsg(struct queueMsg_t * msg);
 void saveMsg(struct queueMsg_t * msg);
 void getSavedMsg(struct queueMsg_t * msg);
 void sendSecondaryQueue();
-struct token_t* getToken();
+struct token_t* getMyTokenState();
+void updateToken();
 
 //global variable
 bool tokenOwned = false;
@@ -37,8 +38,7 @@ void MacSender(void *argument)
 		
 		while(reading)
 		{
-			osStatus_t status = osMessageQueueGet(queue_macS_id, &msg, NULL, osWaitForever);
-			printf("%d\r\n", status);
+			osStatus_t status = osMessageQueueGet(queue_macS_id, &msg, NULL, TIMEOUT_QUEUE);
 			switch (status) //read entry queue
 			{
 				case osOK : 					//queue not empty
@@ -57,7 +57,7 @@ void MacSender(void *argument)
 					if(tokenOwned)
 					{
 						//give the token
-						//sendMsg(token);
+						sendMsg(token);
 					} 
 					else 
 					{
@@ -84,10 +84,12 @@ void checkMsg(struct queueMsg_t * msg)
 			case NEW_TOKEN:
 				if(!isToken)
 				{
+					printf("NEW TOKEN\r\n");
 					//generate new token and I owned the token
 					gTokenInterface.broadcastTime = true;
 					gTokenInterface.connected = true;
-					getToken()->states[MYADDRESS] = (gTokenInterface.connected<<CHAT_SAPI) & (gTokenInterface.broadcastTime<<TIME_SAPI);
+					updateToken();
+					getMyTokenState()->tag = TOKEN_TAG;
 					isToken = true;
 					//prepare and send the token
 					msg->type = TOKEN;
@@ -104,16 +106,17 @@ void checkMsg(struct queueMsg_t * msg)
 				if(tokenOwned)
 				{
 					//chit!!!
-					printf("-token received (own already a token)");
+					printf("-token received (own already a token)\r\n");
 				}
 				else
 				{
 					//token receive from other and I keep it
 					token = msg;
 					//update token
-					getToken()->states[MYADDRESS] = (gTokenInterface.connected<<CHAT_SAPI) & (gTokenInterface.broadcastTime<<TIME_SAPI);
+					updateToken();
 					isToken = true;
 					tokenOwned = true;
+					
 				}
 				break;
 				
@@ -138,14 +141,15 @@ void sendMsg(struct queueMsg_t * msg)
 		{
 			case osOK : 					//msg send
 				sending = false;
+				printf("Message sended\r\n");
 				break;
 				
 			case osErrorResource : //msg not send (queue full)
-				//make a longer timeout
+				printf("Message not sended\r\n");
 				break;
 			
 			default:
-				//do nothing
+				printf("Message not sended\r\n");
 				break;
 		}
 	}
@@ -213,8 +217,15 @@ void getSavedMsg(struct queueMsg_t * msg)
 // Manage token
 //--------------------------------------------------------------------------------
 
-struct token_t * getToken()
+struct token_t * getMyTokenState()
 {
-	return ((struct token_t*)token->anyPtr);
+	return (struct token_t*) token->anyPtr;
 }
+
+void updateToken()
+{
+	getMyTokenState()->states[MYADDRESS].chat = gTokenInterface.connected;
+	getMyTokenState()->states[MYADDRESS].time = gTokenInterface.broadcastTime;
+}
+
 
