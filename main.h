@@ -6,7 +6,7 @@
 /// \date  2018-02
 //////////////////////////////////////////////////////////////////////////////////
 #include "stm32f7xx_hal.h"
-
+#include "cmsis_os2.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdbool.h>
@@ -19,6 +19,10 @@
 #define DEBUG_MODE				1					// mode is physical line (0) or debug (1)
 #define MYADDRESS   			3					// your address choice (table number)
 #define MAX_BLOCK_SIZE 		100				// size max for a frame
+#define MAX_STATION 			16				// number max of station in the network
+//perso
+#define TIMEOUT_QUEUE 		0U
+
 
 //--------------------------------------------------------------------------------
 // Constants to NOT change for the system working
@@ -49,6 +53,7 @@ extern osMessageQueueId_t  queue_timeS_id;
 extern osMessageQueueId_t  queue_chatS_id;
 extern osMessageQueueId_t  queue_keyboard_id;
 extern osMessageQueueId_t  queue_usartR_id;
+extern osMessageQueueId_t  queue_macS_sec_id;
 extern osEventFlagsId_t  	eventFlag_id;
 //--------------------------------------------------------------------------------
 // functions used in more than one file
@@ -64,14 +69,14 @@ struct TOKENINTERFACE
 {
 	uint8_t		myAddress;						///< my current address
 	uint8_t		currentView;					///< the current view on LCD
-	bool_t		debugOnline;					///< is debug station ON
-	bool_t		connected;						///< are we connected
-	bool_t		broadcastTime;				///< is broadcast time active
-	bool_t		needReceiveCRCError;	///< debug has to receive error
-	bool_t		needSendCRCError;			///< debug has to send error
+	bool		debugOnline;					///< is debug station ON
+	bool		connected;						///< are we connected
+	bool		broadcastTime;				///< is broadcast time active
+	bool		needReceiveCRCError;	///< debug has to receive error
+	bool		needSendCRCError;			///< debug has to send error
 	uint32_t	debugSAPI;						///< current debug SAPI
 	uint32_t	debugAddress;					///< current debug address
-	bool_t		debugMsgToSend;				///< did debug have to send a message
+	bool		debugMsgToSend;				///< did debug have to send a message
 	uint32_t	destinationAddress;		///< current destination address
 	uint8_t		station_list[15];			///< 0 to 15
 };
@@ -117,3 +122,29 @@ struct queueMsg_t
 	uint8_t	addr;						///< the source or destination address
 	uint8_t sapi;						///< the source or destination SAPI
 };
+//--------------------------------------------------------------------------------
+// Token structur
+//--------------------------------------------------------------------------------
+
+union station
+{
+	struct
+	{
+		bool_t bit0 : 1;
+		bool_t chat : 1;
+		bool_t bit2 : 1;
+		bool_t time : 1;
+		bool_t bit4 : 1;
+		bool_t bit5 : 1;
+		bool_t bit6 : 1;
+		bool_t bit7 : 1;
+	};
+	uint8_t raw : 8;
+};
+
+struct token_t
+{
+	uint8_t tag;
+	union station states[MAX_STATION];
+};
+
