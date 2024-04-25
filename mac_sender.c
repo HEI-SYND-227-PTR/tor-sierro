@@ -4,13 +4,16 @@
 
 
 //prototypes 
-void sendPrimaryQueue(struct queueMsg_t * msg);
+void processMessage(struct queueMsg_t * msg);
 void sendMsg(struct queueMsg_t * msg);
+
 void saveMsg(struct queueMsg_t * msg);
 void getSavedMsg(struct queueMsg_t * msg);
 void sendSecondaryQueue();
+
 struct token_t* getMyTokenState();
 void updateToken();
+void generateToken(struct queueMsg_t * msg);
 
 //global variable
 bool tokenOwned = false;
@@ -34,44 +37,6 @@ void MacSender(void *argument)
 	
 	while(1)
 	{
-		//----------------------------------------------------------------------------
-		// Manage entry message queue					
-		//----------------------------------------------------------------------------
-		
-		//test if the token is owned and when it must send
-		if(osMessageQueueGetCount(queue_macS_id)!= 0)
-		{
-			//get the queue
-			osMessageQueueGet(queue_macS_id, &msg, NULL, osWaitForever);
-			if(tokenOwned)
-			{
-				//check the message and send it if the secondary queue is empty
-				checkMsg(&msg);
-			}
-			else
-			{
-				
-			}
-			
-		}
-		else if(osMessageQueueGetCount(queue_macS_sec_id) != 0)
-		{
-			if(tokenOwned)
-			{
-				sendSecondaryQueue();//process the first message on the secondary queue
-			}
-		}
-		else
-		{
-			if(tokenOwned)
-			{
-				//give the token
-				sendMsg(token);
-				tokenOwned = false;
-			}
-		}
-		
-		
 		
 		if(tokenOwned)
 		{
@@ -79,10 +44,6 @@ void MacSender(void *argument)
 			{
 				sendSecondaryQueue();//process the first message on the secondary queue
 			}
-			else if(osMessageQueueGetCount(queue_macS_id)!= 0)
-			{
-				sendPrimaryQueue();
-			}
 			else
 			{
 				sendMsg(token);
@@ -92,15 +53,7 @@ void MacSender(void *argument)
 		else
 		{
 			osMessageQueueGet(queue_macS_id, &msg, NULL, osWaitForever);
-			if(isToken)
-			{
-				saveMsg(&msg);	
-			}
-			else
-			{
-				//todo : make a function to generate a token
-				checkMsg(&msg);//create new token
-			}
+			processMessage(&msg);
 		}
 	}
 }
@@ -109,7 +62,7 @@ void MacSender(void *argument)
 // Manage message
 //--------------------------------------------------------------------------------
 
-void sendPrimaryQueue(struct queueMsg_t * msg)
+void processMessage(struct queueMsg_t * msg)
 {
 	switch(msg->type) 
 		{
@@ -117,18 +70,8 @@ void sendPrimaryQueue(struct queueMsg_t * msg)
 				if(!isToken)
 				{
 					printf("NEW TOKEN\r\n");
-					//alocation for new token
-					token->anyPtr = osMemoryPoolAlloc(memPool,osWaitForever);
-					memset((void *)token->anyPtr, 0, TOKENSIZE-2);
-					//generate new token and I owned the token
-					gTokenInterface.broadcastTime = true;
-					gTokenInterface.connected = true;
-					updateToken();
-					getMyTokenState()->tag = TOKEN_TAG;
+					generateToken(msg);
 					isToken = true;
-					//prepare and send the token
-					msg->type = TOKEN;
-					msg->anyPtr = (void*) token->anyPtr;
 					sendMsg(msg);
 					tokenOwned = false;
 				}
@@ -158,6 +101,19 @@ void sendPrimaryQueue(struct queueMsg_t * msg)
 				//chit!!!!
 				break;
 		}
+}
+
+void generateToken(struct queueMsg_t * msg)
+{
+	token->anyPtr = osMemoryPoolAlloc(memPool,osWaitForever);
+	memset((void *)token->anyPtr, 0, TOKENSIZE-2);
+	//generate new token and I owned the token
+	gTokenInterface.broadcastTime = true;
+	gTokenInterface.connected = true;
+	updateToken();
+	getMyTokenState()->tag = TOKEN_TAG;
+	msg->type = TOKEN;
+	msg->anyPtr = (void*) token->anyPtr;
 }
 
 //--------------------------------------------------------------------------------

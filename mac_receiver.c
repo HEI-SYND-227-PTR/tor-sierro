@@ -19,32 +19,21 @@ void MacReceiver(void *argument)
 	
 	while(true)
 	{
-		//read the input queue
-		while(reading)
-		{
-			osStatus_t status = osMessageQueueGet(queue_macR_id, &msg, NULL, TIMEOUT_QUEUE);
-			switch (status) //read entry queue
+			//read the input queue
+			osStatus_t status = osMessageQueueGet(queue_macR_id, &msg, NULL, osWaitForever);
+		
+			//check token tag to detect a token frame 
+			if(controlToken(&msg) == true)
 			{
-				case osOK : 					//queue not empty
-					//check token tag to detect a token frame 
-					if(controlToken(&msg) == true)
-					{
-						//send it to the mac sender and change msg type
-						msg.type = TOKEN;
-						sendMessage(&msg);
-						printf("RECEIVE TOKEN\r\n");
-					}
-					else
-					{
-						printf("RECEIVE MESSAGE\r\n");
-					}
-					break;
-				
-				default:
-					//printf("RECEIVE NOTHING (%d)\r\n", status);
-					break;
+				//send it to the mac sender and change msg type
+				msg.type = TOKEN;
+				sendMessage(&msg);
+				//printf("RECEIVE TOKEN\r\n");
 			}
-		}
+			else
+			{
+				//printf("RECEIVE MESSAGE\r\n");
+			}
 	}
 
 }
