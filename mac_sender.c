@@ -51,7 +51,7 @@ void MacSender(void *argument)
 			}
 			else
 			{
-				macSenderSendMsg(token, queue_macS_id);
+				macSenderSendMsg(token, queue_phyS_id);
 				tokenOwned = false;
 			}
 		}
@@ -78,7 +78,7 @@ void processMessage(struct queueMsg_t * msg, struct msg_content_t * msg_content)
 					generateToken(msg);
 					isToken = true;
 					updateStation(token);
-					macSenderSendMsg(msg, queue_macS_id);
+					macSenderSendMsg(msg, queue_phyS_id);
 					tokenOwned = false;
 				}
 				else
@@ -138,7 +138,7 @@ void generateToken(struct queueMsg_t * msg)
 	token->anyPtr = osMemoryPoolAlloc(memPool,osWaitForever);
 	memset((void *)token->anyPtr, 0, TOKENSIZE-2);
 	//generate new token and I owned the token
-	gTokenInterface.broadcastTime = true;
+	//gTokenInterface.broadcastTime = true;
 	gTokenInterface.connected = true;
 	updateToken();
 	getMyTokenState()->tag = TOKEN_TAG;
@@ -199,53 +199,19 @@ void sendSecondaryQueue()
 {
 	struct queueMsg_t * msg;
 	getSavedMsg(msg);
-	macSenderSendMsg(msg, queue_macS_id);
+	macSenderSendMsg(msg, queue_phyS_id);
 }
 
 //saved message getted from the mac sender queue when there isn't token
 void saveMsg(struct queueMsg_t * msg)
 {
-	bool saving = true;
-	while(saving)
-	{
-		switch(osMessageQueuePut(queue_macS_sec_id, msg, osPriorityNormal, TIMEOUT_QUEUE))
-		{
-			case osOK : 					//msg send
-				saving = false;
-				break;
-				
-			case osErrorResource : //msg not send (queue full)
-				//make a longer timeout or increase the max of the queue
-				break;
-			
-			default:
-				//do nothing
-				break;
-		}
-	}
+	osMessageQueuePut(queue_macS_sec_id, msg, osPriorityNormal, osWaitForever);
 }
+
 //get saved message 
 void getSavedMsg(struct queueMsg_t * msg)
 {
-	bool getSaving = true;
-	while(getSaving)
-	{
-		switch(osMessageQueuePut(queue_macS_sec_id, msg, osPriorityNormal, TIMEOUT_QUEUE))
-		{
-			case osOK : 					//msg get
-				getSaving = false;
-				break;
-				
-			case osErrorResource : //queue empty
-				getSaving = false;
-				msg = NULL;
-				break;
-			
-			default:
-				msg = NULL;
-				break;
-		}
-	}
+	osMessageQueueGet(queue_macS_sec_id, msg, NULL, osWaitForever);
 }
 
 //--------------------------------------------------------------------------------
