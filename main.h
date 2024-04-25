@@ -181,8 +181,8 @@ union status_t
 
 struct msg_content_t
 {
-	union control_t control;
-	uint8_t length;
+	union control_t* control;
+	uint8_t* length;
 	uint8_t * ptr;
 	union status_t * status;
 };

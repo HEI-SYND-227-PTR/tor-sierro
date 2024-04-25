@@ -4,8 +4,8 @@
 
 
 //prototypes 
-void processMessage(struct queueMsg_t * msg);
-void sendMsg(struct queueMsg_t * msg);
+void processMessage(struct queueMsg_t * msg, struct msg_content_t * msg_content);
+void macSenderSendMsg(struct queueMsg_t * msg, osMessageQueueId_t queueId);
 
 void saveMsg(struct queueMsg_t * msg);
 void getSavedMsg(struct queueMsg_t * msg);
@@ -14,6 +14,10 @@ void sendSecondaryQueue();
 struct token_t* getMyTokenState();
 void updateToken();
 void generateToken(struct queueMsg_t * msg);
+void generateFrame(struct queueMsg_t * msg, uint8_t * previousAnyPtr, struct msg_content_t * msg_content);
+void calculateChecksum(struct queueMsg_t * msg, struct msg_content_t * msg_content);
+void sendTokenList();
+void updateStation(struct queueMsg_t * token);
 
 //global variable
 bool tokenOwned = false;
@@ -28,6 +32,7 @@ struct queueMsg_t * token;
 void MacSender(void *argument)
 {
 	struct queueMsg_t msg;
+	struct msg_content_t msg_content;
 	
 	token = osMemoryPoolAlloc(memPool, osWaitForever);
 	memset((void *)token, 0, sizeof(*token));
@@ -46,14 +51,14 @@ void MacSender(void *argument)
 			}
 			else
 			{
-				sendMsg(token);
+				macSenderSendMsg(token, queue_macS_id);
 				tokenOwned = false;
 			}
 		}
 		else
 		{
 			osMessageQueueGet(queue_macS_id, &msg, NULL, osWaitForever);
-			processMessage(&msg);
+			processMessage(&msg, &msg_content);
 		}
 	}
 }
@@ -61,9 +66,9 @@ void MacSender(void *argument)
 //--------------------------------------------------------------------------------
 // Manage message
 //--------------------------------------------------------------------------------
-
-void processMessage(struct queueMsg_t * msg)
+void processMessage(struct queueMsg_t * msg, struct msg_content_t * msg_content)
 {
+	uint8_t * previousAnyPtr = NULL;
 	switch(msg->type) 
 		{
 			case NEW_TOKEN:
@@ -72,7 +77,8 @@ void processMessage(struct queueMsg_t * msg)
 					printf("NEW TOKEN\r\n");
 					generateToken(msg);
 					isToken = true;
-					sendMsg(msg);
+					updateStation(token);
+					macSenderSendMsg(msg, queue_macS_id);
 					tokenOwned = false;
 				}
 				else
@@ -80,6 +86,7 @@ void processMessage(struct queueMsg_t * msg)
 					//chit!!!!
 				}
 				break;
+				
 			case TOKEN:
 				if(!tokenOwned)
 				{
@@ -87,6 +94,7 @@ void processMessage(struct queueMsg_t * msg)
 					token = msg;
 					//update token
 					updateToken();
+					updateStation(token);
 					isToken = true;
 					tokenOwned = true;
 				}
@@ -97,6 +105,28 @@ void processMessage(struct queueMsg_t * msg)
 				}
 				break;
 				
+			case DATABACK:
+				break;
+			
+			case START:
+				//connect to the chat
+				gTokenInterface.connected = true;
+				osMemoryPoolFree(memPool, msg->anyPtr);
+				break;
+			
+			case STOP:
+				//disconnect ot the chat
+				gTokenInterface.connected = false;
+				osMemoryPoolFree(memPool, msg->anyPtr);	
+				break;
+			
+			case DATA_IND:
+				generateFrame(msg, previousAnyPtr, msg_content);
+				calculateChecksum(msg, msg_content);
+				//save message
+				saveMsg(msg);
+				break;
+			
 			default:
 				//chit!!!!
 				break;
@@ -116,33 +146,49 @@ void generateToken(struct queueMsg_t * msg)
 	msg->anyPtr = (void*) token->anyPtr;
 }
 
+void generateFrame(struct queueMsg_t * msg, uint8_t * previousAnyPtr, struct msg_content_t * msg_content)
+{
+	previousAnyPtr = msg->anyPtr;
+	msg->anyPtr = osMemoryPoolAlloc(memPool,osWaitForever);
+	memset((void *)msg->anyPtr, 0, MAX_BLOCK_SIZE);
+	
+	//set ptr for content
+	msg_content->length = &((uint8_t *)msg->anyPtr)[3];
+	*msg_content->length = sizeof(*previousAnyPtr);
+	msg_content->control = ((union control_t *)msg->anyPtr);
+	msg_content->ptr = &((uint8_t *)msg->anyPtr)[4];
+	msg_content->status = (union status_t *)(&((uint8_t *)msg->anyPtr)[3 + *msg_content->length + 1]);
+	
+	//set the control
+	msg_content->control->destSapi = msg->sapi;
+	msg_content->control->destAddr = msg->addr;
+	msg_content->control->srcSapi = msg->sapi;
+	msg_content->control->srcAddr = MYADDRESS;
+	//set the string content
+	for(uint32_t i=0; i<*msg_content->length; i++)
+	{
+		((uint8_t *)msg->anyPtr)[i + OFFSET_TO_MSG] = previousAnyPtr[i + OFFSET_TO_MSG];
+	}
+}
+
+void calculateChecksum(struct queueMsg_t * msg, struct msg_content_t * msg_content)
+{
+	uint32_t sum = 0;
+	for(uint32_t i=0; i<(3 + *msg_content->length); i++)
+	{
+		sum += ((uint8_t *)msg->anyPtr)[i];
+	}
+	msg_content->status->checksum = (sum & 0x3F);
+}
 //--------------------------------------------------------------------------------
 // Send message to physical layer
 //--------------------------------------------------------------------------------
 
 //here it buil the msg and put in the queue of the pyhsic sender
 //free the part of msg
-void sendMsg(struct queueMsg_t * msg)
+void macSenderSendMsg(struct queueMsg_t * msg, osMessageQueueId_t queueId)
 {
-	bool sending = true;
-	while(sending)
-	{
-		switch(osMessageQueuePut(queue_phyS_id, msg, osPriorityNormal, TIMEOUT_QUEUE))
-		{
-			case osOK : 					//msg send
-				sending = false;
-				printf("Message sended\r\n");
-				break;
-				
-			case osErrorResource : //msg not send (queue full)
-				printf("Message not sended\r\n");
-				break;
-			
-			default:
-				printf("Message not sended\r\n");
-				break;
-		}
-	}
+	osMessageQueuePut(queueId, msg, osPriorityNormal, osWaitForever);
 }
 
 //--------------------------------------------------------------------------------
@@ -153,7 +199,7 @@ void sendSecondaryQueue()
 {
 	struct queueMsg_t * msg;
 	getSavedMsg(msg);
-	sendMsg(msg);
+	macSenderSendMsg(msg, queue_macS_id);
 }
 
 //saved message getted from the mac sender queue when there isn't token
@@ -215,6 +261,22 @@ void updateToken()
 {
 	getMyTokenState()->states[MYADDRESS].chat = gTokenInterface.connected;
 	getMyTokenState()->states[MYADDRESS].time = gTokenInterface.broadcastTime;
+}
+
+void sendTokenList()
+{
+	struct queueMsg_t msg;
+	msg.type = TOKEN_LIST;
+	macSenderSendMsg(&msg, queue_lcd_id);
+}
+
+void updateStation(struct queueMsg_t * token)
+{
+	for(uint32_t i=0; i<MAX_STATION; i++)
+	{
+		gTokenInterface.station_list[i] = ((uint8_t *)token->anyPtr)[i+1];
+	}
+	sendTokenList();
 }
 
 
