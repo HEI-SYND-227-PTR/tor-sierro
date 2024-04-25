@@ -17,11 +17,12 @@
 // Constants to change the system behavior
 //--------------------------------------------------------------------------------
 #define DEBUG_MODE				1					// mode is physical line (0) or debug (1)
-#define MYADDRESS   			3					// your address choice (table number)
+#define MYADDRESS   			1					// your address choice (table number)
 #define MAX_BLOCK_SIZE 		100				// size max for a frame
 #define MAX_STATION 			16				// number max of station in the network
 //perso
 #define TIMEOUT_QUEUE 		0U
+#define OFFSET_TO_MSG			4
 
 
 //--------------------------------------------------------------------------------
@@ -146,5 +147,43 @@ struct token_t
 {
 	uint8_t tag;
 	union station states[MAX_STATION];
+};
+
+//--------------------------------------------------------------------------------
+// Message structur
+//--------------------------------------------------------------------------------
+
+union control_t
+{
+	struct
+	{
+		uint8_t destSapi : 3;
+		uint8_t destAddr : 4;
+		bool_t bit7 : 1;
+		uint8_t srcSapi : 3;
+		uint8_t srcAddr : 4;
+		bool_t bit15 : 1;
+	};
+	uint16_t raw : 16;
+};
+	
+
+union status_t
+{
+	struct
+	{
+		bool_t ack : 1;
+		bool_t read : 1;
+		uint8_t checksum : 6;
+	};
+	uint8_t raw : 16;
+};
+
+struct msg_content_t
+{
+	union control_t control;
+	uint8_t length;
+	uint8_t * ptr;
+	union status_t * status;
 };
 
