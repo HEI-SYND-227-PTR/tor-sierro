@@ -18,6 +18,7 @@ void generateFrame(struct queueMsg_t * msg, uint8_t * previousAnyPtr, struct msg
 void calculateChecksum(struct queueMsg_t * msg, struct msg_content_t * msg_content);
 void sendTokenList();
 void updateStation(struct queueMsg_t * token);
+uint8_t getStringLength(uint8_t * stringPtr);
 
 //global variable
 bool tokenOwned = false;
@@ -153,11 +154,11 @@ void generateFrame(struct queueMsg_t * msg, uint8_t * previousAnyPtr, struct msg
 	memset((void *)msg->anyPtr, 0, MAX_BLOCK_SIZE);
 	
 	//set ptr for content
-	msg_content->length = &((uint8_t *)msg->anyPtr)[3];
-	*msg_content->length = sizeof(*previousAnyPtr);
+	msg_content->length = &((uint8_t *)msg->anyPtr)[2];
+	*msg_content->length = getStringLength(previousAnyPtr);
 	msg_content->control = ((union control_t *)msg->anyPtr);
-	msg_content->ptr = &((uint8_t *)msg->anyPtr)[4];
-	msg_content->status = (union status_t *)(&((uint8_t *)msg->anyPtr)[3 + *msg_content->length + 1]);
+	msg_content->ptr = &((uint8_t *)msg->anyPtr)[3];
+	msg_content->status = (union status_t *)(&((uint8_t *)msg->anyPtr)[3 + *msg_content->length]);
 	
 	//set the control
 	msg_content->control->destSapi = msg->sapi;
@@ -167,9 +168,24 @@ void generateFrame(struct queueMsg_t * msg, uint8_t * previousAnyPtr, struct msg
 	//set the string content
 	for(uint32_t i=0; i<*msg_content->length; i++)
 	{
-		((uint8_t *)msg->anyPtr)[i + OFFSET_TO_MSG] = previousAnyPtr[i + OFFSET_TO_MSG];
+		((uint8_t *)msg->anyPtr)[i + OFFSET_TO_MSG] = previousAnyPtr[i];
 	}
+	//free the previous ptr
+	osMemoryPoolFree(memPool, previousAnyPtr);
 }
+
+//calculate the length with the '\0'
+uint8_t getStringLength(uint8_t * stringPtr)
+{
+	uint8_t length = 0;
+	while(*stringPtr != '\0')
+	{
+		stringPtr++;
+		length++;
+	};
+	return length+1;
+}
+
 
 void calculateChecksum(struct queueMsg_t * msg, struct msg_content_t * msg_content)
 {
@@ -197,9 +213,9 @@ void macSenderSendMsg(struct queueMsg_t * msg, osMessageQueueId_t queueId)
 
 void sendSecondaryQueue()
 {
-	struct queueMsg_t * msg;
-	getSavedMsg(msg);
-	macSenderSendMsg(msg, queue_phyS_id);
+	struct queueMsg_t msg;
+	getSavedMsg(&msg);
+	macSenderSendMsg(&msg, queue_phyS_id);
 }
 
 //saved message getted from the mac sender queue when there isn't token

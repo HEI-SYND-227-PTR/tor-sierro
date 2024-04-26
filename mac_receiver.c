@@ -38,8 +38,22 @@ void MacReceiver(void *argument)
 			//get control and status value of the msg
 			getMessageContent(&msg, &msg_content);
 			
-			//test source address
-			if(msg_content.control->srcAddr == MYADDRESS)
+			if(msg_content.control->destAddr == BROADCAST_ADDRESS) // test braodcast
+			{
+				if(checkMessage(&msg, &msg_content))
+				{
+					if(msg_content.control->destSapi == TIME_SAPI)
+					{
+						//generate msg to app with malloc
+						generateFrameApp(&msg, &msg_to_app, *msg_content.length);
+						msg_to_app.type = DATA_IND;
+						prepareMessageQueue(&msg_to_app, &msg_content);
+						macReceiverSendMsg(&msg_to_app, queue_timeR_id); //send it
+						osMemoryPoolFree(memPool, msg.anyPtr);
+					}
+				}
+			}
+			else if(msg_content.control->srcAddr == MYADDRESS)//test source address
 			{
 				//to mac sender (databack)
 				msg.type = DATABACK;
@@ -65,20 +79,6 @@ void MacReceiver(void *argument)
 					}
 					msg.type = TO_PHY;
 					macReceiverSendMsg(&msg, queue_phyS_id);	//send ack message
-				}
-				else if(msg_content.control->destAddr == BROADCAST_ADDRESS)
-				{
-					if(checkMessage(&msg, &msg_content))
-					{
-						if(msg_content.control->destSapi == TIME_SAPI)
-						{
-							//generate msg to app with malloc
-							generateFrameApp(&msg, &msg_to_app, *msg_content.length);
-							msg_to_app.type = DATA_IND;
-							prepareMessageQueue(&msg_to_app, &msg_content);
-							macReceiverSendMsg(&msg, queue_timeR_id); //send it
-						}
-					}
 				}
 				else
 				{
@@ -125,10 +125,10 @@ void generateFrameApp(struct queueMsg_t *msg, struct queueMsg_t *msg_to_app, uin
 
 void getMessageContent(struct queueMsg_t *msg, struct msg_content_t* msg_content)
 {
-		*msg_content->length = ((uint8_t *)msg->anyPtr)[3];
+		*msg_content->length = ((uint8_t *)msg->anyPtr)[2];
 		msg_content->control = ((union control_t *)msg->anyPtr);
-		msg_content->ptr = &((uint8_t *)msg->anyPtr)[4];
-		msg_content->status = (union status_t *)(&((uint8_t *)msg->anyPtr)[3 + *msg_content->length + 1]);
+		msg_content->ptr = &((uint8_t *)msg->anyPtr)[OFFSET_TO_MSG];
+		msg_content->status = (union status_t *)(&((uint8_t *)msg->anyPtr)[OFFSET_TO_MSG + *msg_content->length]);
 }
 
 void prepareMessageQueue(struct queueMsg_t *msg, struct msg_content_t *msg_content)

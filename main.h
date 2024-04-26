@@ -22,7 +22,7 @@
 #define MAX_STATION 			16				// number max of station in the network
 //perso
 #define TIMEOUT_QUEUE 		0U
-#define OFFSET_TO_MSG			4
+#define OFFSET_TO_MSG			3
 
 
 //--------------------------------------------------------------------------------
