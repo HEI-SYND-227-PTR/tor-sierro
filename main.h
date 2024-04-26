@@ -23,6 +23,7 @@
 //perso
 #define TIMEOUT_QUEUE 		0U
 #define OFFSET_TO_MSG			3
+#define MAX_DATABACK_RECEIVED 3
 
 
 //--------------------------------------------------------------------------------
@@ -157,12 +158,12 @@ union control_t
 {
 	struct
 	{
-		uint8_t destSapi : 3;
-		uint8_t destAddr : 4;
-		bool_t bit7 : 1;
 		uint8_t srcSapi : 3;
 		uint8_t srcAddr : 4;
 		bool_t bit15 : 1;
+		uint8_t destSapi : 3;
+		uint8_t destAddr : 4;
+		bool_t bit7 : 1;
 	};
 	uint16_t raw : 16;
 };

@@ -20,7 +20,6 @@ void MacReceiver(void *argument)
 	struct queueMsg_t msg_to_app;
 	struct msg_content_t msg_content;
 	
-		
 	while(true)
 	{
 		//read the input queue
@@ -72,7 +71,7 @@ void MacReceiver(void *argument)
 							generateFrameApp(&msg, &msg_to_app, *msg_content.length);
 							msg_to_app.type = DATA_IND;
 							prepareMessageQueue(&msg_to_app, &msg_content);
-							macReceiverSendMsg(&msg, queue_chatR_id); //send it
+							macReceiverSendMsg(&msg_to_app, queue_chatR_id); //send it
 							
 							msg_content.status->read = 1;
 						}
