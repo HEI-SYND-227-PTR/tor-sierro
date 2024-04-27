@@ -158,7 +158,7 @@ void processMessage(struct queueMsg_t * msg, struct msg_content_t * msg_content,
 								retCode = osMemoryPoolFree(memPool, databackManager->msgSavedForDataback.anyPtr);
 								CheckRetCode(retCode,__LINE__,__FILE__,CONTINUE);
 							}
-							if(msg_content->control->srcAddr = MYADDRESS)
+							if(msg_content->control->srcAddr == MYADDRESS)
 							{
 								//Free memory of actual message
 								retCode = osMemoryPoolFree(memPool, msg->anyPtr);
