@@ -436,7 +436,7 @@ bool checkMessage(struct queueMsg_t *msg, struct msg_content_t* msg_content)
 
 void getPtrMessageContent(struct queueMsg_t *msg, struct msg_content_t* msg_content)
 {
-		*msg_content->length = ((uint8_t *)msg->anyPtr)[2];
+		msg_content->length = &((uint8_t *)msg->anyPtr)[2];
 		msg_content->control = ((union control_t *)msg->anyPtr);
 		msg_content->ptr = &((uint8_t *)msg->anyPtr)[OFFSET_TO_MSG];
 		msg_content->status = (union status_t *)(&((uint8_t *)msg->anyPtr)[OFFSET_TO_MSG + *msg_content->length]);

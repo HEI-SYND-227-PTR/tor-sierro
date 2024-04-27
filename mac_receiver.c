@@ -60,9 +60,9 @@ void MacReceiver(void *argument)
 						prepareMessageQueue(&msg_to_app, &msg_content);
 						macReceiverSendMsg(&msg_to_app, queue_chatR_id); //send it
 						}
-						
 					}
 				}
+				msg_content.status->read = true;
 			}
 			//send all to the mac sender (databack)
 			msg.type = DATABACK;
