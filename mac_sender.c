@@ -158,20 +158,25 @@ void processMessage(struct queueMsg_t * msg, struct msg_content_t * msg_content,
 								retCode = osMemoryPoolFree(memPool, databackManager->msgSavedForDataback.anyPtr);
 								CheckRetCode(retCode,__LINE__,__FILE__,CONTINUE);
 							}
-							//Free memory of actual message
-							retCode = osMemoryPoolFree(memPool, msg->anyPtr);
-							CheckRetCode(retCode,__LINE__,__FILE__,CONTINUE);
+							if(msg_content->control->srcAddr = MYADDRESS)
+							{
+								//Free memory of actual message
+								retCode = osMemoryPoolFree(memPool, msg->anyPtr);
+								CheckRetCode(retCode,__LINE__,__FILE__,CONTINUE);
+							}
+							else
+							{
+								msg->type = TO_PHY;
+								macSenderSendMsg(msg, queue_phyS_id);
+							}
 							
 							databackManager->waitDataBack = false;
 						}
 						else
 						{
 							copyMsg(&databackManager->msgSavedForDataback, msg, *databackManager->msg_content.length);
-							
 							//there was a crc error, send the message another time
 							macSenderSendMsg(msg, queue_phyS_id);
-
-
 						}
 					}
 					else
@@ -214,9 +219,6 @@ void processMessage(struct queueMsg_t * msg, struct msg_content_t * msg_content,
 			case START:
 				//connect to the chat
 				gTokenInterface.connected = true;
-			
-				retCode = osMemoryPoolFree(memPool, msg->anyPtr);
-				CheckRetCode(retCode,__LINE__,__FILE__,CONTINUE);
 				break;
 //--------------------------------------------------------------------------------
 // STOP
@@ -224,15 +226,12 @@ void processMessage(struct queueMsg_t * msg, struct msg_content_t * msg_content,
 			case STOP:
 				//disconnect ot the chat
 				gTokenInterface.connected = false;
-			
-				retCode = osMemoryPoolFree(memPool, msg->anyPtr);	
-				CheckRetCode(retCode,__LINE__,__FILE__,CONTINUE);
 				break;
 //--------------------------------------------------------------------------------
 // DATA_IND
 //--------------------------------------------------------------------------------			
 			case DATA_IND:
-				if(verifyDestSapiActivate(tokenManager, msg) || msg->sapi == TIME_SAPI)
+				if(verifyDestSapiActivate(tokenManager, msg) || msg->addr == BROADCAST_ADDRESS)
 				{
 					generateFrame(msg, previousAnyPtr, msg_content);
 					calculateChecksum(msg, msg_content);
@@ -261,6 +260,7 @@ void generateToken(struct queueMsg_t * msg, struct tokenManager_t * tokenManager
 	tokenManager->token.anyPtr = osMemoryPoolAlloc(memPool,osWaitForever);
 	memset((void *)tokenManager->token.anyPtr, 0, TOKENSIZE-2);
 	//generate new token and I owned the token
+	
 	updateToken(tokenManager);
 	getMyTokenState(tokenManager)->tag = TOKEN_TAG;
 	msg->type = TOKEN;
@@ -377,7 +377,7 @@ struct token_t * getMyTokenState(struct tokenManager_t * tokenManager)
 void updateToken(struct tokenManager_t * tokenManager)
 {
 	getMyTokenState(tokenManager)->states[MYADDRESS].chat = gTokenInterface.connected;
-	getMyTokenState(tokenManager)->states[MYADDRESS].time = gTokenInterface.broadcastTime;
+	getMyTokenState(tokenManager)->states[MYADDRESS].time = true;
 }
 
 void sendTokenList()
@@ -395,7 +395,7 @@ void updateStation(struct tokenManager_t * tokenManager)
 
 bool verifyDestSapiActivate(struct tokenManager_t * tokenManager, struct queueMsg_t * msg)
 {
-	return ((struct token_t *)tokenManager->token.anyPtr)->states[msg->addr].chat;
+	return ((union station *)gTokenInterface.station_list)[msg->addr].chat;
 }
 
 

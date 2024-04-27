@@ -20,6 +20,7 @@ void MacReceiver(void *argument)
 	osStatus_t retCode;
 	while(true)
 	{
+		osDelay(300);
 		//read the input queue
 		retCode = osMessageQueueGet(queue_macR_id, &msg, NULL, osWaitForever);
 		CheckRetCode(retCode,__LINE__,__FILE__,CONTINUE);
@@ -96,12 +97,12 @@ void prepareMessageQueue(struct queueMsg_t *msg, struct msg_content_t *msg_conte
 		
 		case DATABACK:
 			msg->sapi = msg_content->control->srcSapi;
-			msg->sapi = msg_content->control->srcAddr;
+			msg->addr = msg_content->control->srcAddr;
 			break;
 		
 		case DATA_IND:
 			msg->sapi = msg_content->control->srcSapi;
-			msg->sapi = msg_content->control->srcAddr;
+			msg->addr = msg_content->control->srcAddr;
 			break;
 		
 		case TO_PHY:
