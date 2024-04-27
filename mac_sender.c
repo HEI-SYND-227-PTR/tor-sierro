@@ -92,7 +92,7 @@ void processMessage(struct queueMsg_t * msg, struct msg_content_t * msg_content,
 	switch(msg->type) 
 		{
 			case NEW_TOKEN:
-				if(!tokenManager->isToken && (databackManager->waitDataBack == false))
+				if(!tokenManager->isToken)
 				{
 					printf("NEW TOKEN\r\n");
 					generateToken(msg, tokenManager);
@@ -108,7 +108,7 @@ void processMessage(struct queueMsg_t * msg, struct msg_content_t * msg_content,
 				break;
 				
 			case TOKEN:
-				if(!tokenManager->tokenOwned && (databackManager->waitDataBack == false))
+				if(!tokenManager->tokenOwned)
 				{
 					//token receive from other and I keep it
 					tokenManager->token = msg;

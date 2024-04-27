@@ -23,7 +23,9 @@ void MacReceiver(void *argument)
 		//read the input queue
 		retCode = osMessageQueueGet(queue_macR_id, &msg, NULL, osWaitForever);
 		CheckRetCode(retCode,__LINE__,__FILE__,CONTINUE);
-		//check token tag to detect a token frame 
+//----------------------------------------------------------------------------
+//	Manage token								
+//----------------------------------------------------------------------------
 		if(controlToken(&msg))
 		{
 			//send it to the mac sender and change msg type
@@ -35,7 +37,7 @@ void MacReceiver(void *argument)
 			//get control and status value of the msg
 			getPtrMessageContent(&msg, &msg_content);
 			
-			if(msg_content.control->destAddr == BROADCAST_ADDRESS) // test braodcast
+			if(msg_content.control->destAddr == BROADCAST_ADDRESS || msg_content.control->destAddr == MYADDRESS)
 			{
 				if(checkMessage(&msg, &msg_content))
 				{
@@ -46,45 +48,27 @@ void MacReceiver(void *argument)
 						msg_to_app.type = DATA_IND;
 						prepareMessageQueue(&msg_to_app, &msg_content);
 						macReceiverSendMsg(&msg_to_app, queue_timeR_id); //send it
-						
-						retCode = osMemoryPoolFree(memPool, msg.anyPtr);
-						CheckRetCode(retCode,__LINE__,__FILE__,CONTINUE);
 					}
-				}
-			}
-			else if(msg_content.control->srcAddr == MYADDRESS)//test source address
-			{
-				//to mac sender (databack)
-				msg.type = DATABACK;
-				prepareMessageQueue(&msg, &msg_content);
-				macReceiverSendMsg(&msg, queue_macS_id);
-			}
-			else
-			{
-				if(msg_content.control->destAddr == MYADDRESS)//send to app and phy
-				{	
-					if(gTokenInterface.connected)
+
+					else if((msg_content.control->destSapi == CHAT_SAPI))
 					{
-						if((msg_content.control->destSapi == CHAT_SAPI) && checkMessage(&msg, &msg_content))
+						if(gTokenInterface.connected)
 						{
-							//generate msg to app with malloc
-							generateFrameApp(&msg, &msg_to_app, *msg_content.length);
-							msg_to_app.type = DATA_IND;
-							prepareMessageQueue(&msg_to_app, &msg_content);
-							macReceiverSendMsg(&msg_to_app, queue_chatR_id); //send it
+						//generate msg to app with malloc
+						generateFrameApp(&msg, &msg_to_app, *msg_content.length);
+						msg_to_app.type = DATA_IND;
+						prepareMessageQueue(&msg_to_app, &msg_content);
+						macReceiverSendMsg(&msg_to_app, queue_chatR_id); //send it
 						}
-						msg_content.status->read = 1;
+						
 					}
-					msg.type = TO_PHY;
-					macReceiverSendMsg(&msg, queue_phyS_id);	//send ack message
-				}
-				else
-				{
-					//send to physical layer to give to the next
-					msg.type = TO_PHY;
-					macReceiverSendMsg(&msg, queue_phyS_id);	
 				}
 			}
+			//send all to the mac sender (databack)
+			msg.type = DATABACK;
+			prepareMessageQueue(&msg, &msg_content);
+			macReceiverSendMsg(&msg, queue_macS_id);
+
 		}
 	}
 }
