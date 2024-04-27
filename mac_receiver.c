@@ -1,13 +1,11 @@
 #include "main.h"
 #include <stdio.h>
 
-
 bool controlToken(struct queueMsg_t *msg);
 void controlSrcAddr(struct queueMsg_t *msg);
 void controlDestAddr(struct queueMsg_t *msg);
 void macReceiverSendMsg(struct queueMsg_t *msg, osMessageQueueId_t queue);
-void getMessageContent(struct queueMsg_t *msg, struct msg_content_t* msg_content);
-bool checkMessage(struct queueMsg_t *msg, struct msg_content_t* msg_content);
+
 void generateFrameApp(struct queueMsg_t *msg, struct queueMsg_t *msg_to_app, uint8_t msg_length);
 void prepareMessageQueue(struct queueMsg_t *msg, struct msg_content_t *msg_content);
 
@@ -19,12 +17,12 @@ void MacReceiver(void *argument)
 	struct queueMsg_t msg;
 	struct queueMsg_t msg_to_app;
 	struct msg_content_t msg_content;
-	
+	osStatus_t retCode;
 	while(true)
 	{
 		//read the input queue
-		osStatus_t status = osMessageQueueGet(queue_macR_id, &msg, NULL, osWaitForever);
-	
+		retCode = osMessageQueueGet(queue_macR_id, &msg, NULL, osWaitForever);
+		CheckRetCode(retCode,__LINE__,__FILE__,CONTINUE);
 		//check token tag to detect a token frame 
 		if(controlToken(&msg))
 		{
@@ -35,7 +33,7 @@ void MacReceiver(void *argument)
 		else
 		{
 			//get control and status value of the msg
-			getMessageContent(&msg, &msg_content);
+			getPtrMessageContent(&msg, &msg_content);
 			
 			if(msg_content.control->destAddr == BROADCAST_ADDRESS) // test braodcast
 			{
@@ -48,7 +46,9 @@ void MacReceiver(void *argument)
 						msg_to_app.type = DATA_IND;
 						prepareMessageQueue(&msg_to_app, &msg_content);
 						macReceiverSendMsg(&msg_to_app, queue_timeR_id); //send it
-						osMemoryPoolFree(memPool, msg.anyPtr);
+						
+						retCode = osMemoryPoolFree(memPool, msg.anyPtr);
+						CheckRetCode(retCode,__LINE__,__FILE__,CONTINUE);
 					}
 				}
 			}
@@ -63,18 +63,17 @@ void MacReceiver(void *argument)
 			{
 				if(msg_content.control->destAddr == MYADDRESS)//send to app and phy
 				{	
-					if(checkMessage(&msg, &msg_content) && gTokenInterface.connected)
+					if(gTokenInterface.connected)
 					{
-						if(msg_content.control->destSapi == CHAT_SAPI)
+						if((msg_content.control->destSapi == CHAT_SAPI) && checkMessage(&msg, &msg_content))
 						{
 							//generate msg to app with malloc
 							generateFrameApp(&msg, &msg_to_app, *msg_content.length);
 							msg_to_app.type = DATA_IND;
 							prepareMessageQueue(&msg_to_app, &msg_content);
 							macReceiverSendMsg(&msg_to_app, queue_chatR_id); //send it
-							
-							msg_content.status->read = 1;
 						}
+						msg_content.status->read = 1;
 					}
 					msg.type = TO_PHY;
 					macReceiverSendMsg(&msg, queue_phyS_id);	//send ack message
@@ -92,43 +91,15 @@ void MacReceiver(void *argument)
 //--------------------------------------------------------------------------------
 // message management
 //--------------------------------------------------------------------------------
-bool checkMessage(struct queueMsg_t *msg, struct msg_content_t* msg_content)
-{
-	uint32_t sum = 0;
-	for(uint8_t i=0; i<(*msg_content->length + 3); i++)
-	{
-		sum += ((uint8_t *)msg->anyPtr)[i];
-	}
-	if(msg_content->status->checksum == (sum & 0x3F))
-	{
-		msg_content->status->ack = true;
-		return true;
-	}
-	else
-	{
-		msg_content->status->ack = false;
-		return false;
-	}
-}
+
 
 void generateFrameApp(struct queueMsg_t *msg, struct queueMsg_t *msg_to_app, uint8_t msg_length)
 {
 	msg_to_app->anyPtr = osMemoryPoolAlloc(memPool,osWaitForever);
-	memset((void *)msg_to_app->anyPtr, 0, MAX_BLOCK_SIZE);
-	
-	for(uint32_t i=0; i<msg_length; i++)
-	{
-		((uint8_t *)msg_to_app->anyPtr)[i] = ((uint8_t *)msg->anyPtr)[OFFSET_TO_MSG + i];//copy the msg
-	}
+	memcpy(msg_to_app->anyPtr, &((uint8_t *)msg->anyPtr)[OFFSET_TO_MSG], msg_length);
+	((uint8_t *)msg_to_app->anyPtr)[msg_length] = '\0';
 }
 
-void getMessageContent(struct queueMsg_t *msg, struct msg_content_t* msg_content)
-{
-		*msg_content->length = ((uint8_t *)msg->anyPtr)[2];
-		msg_content->control = ((union control_t *)msg->anyPtr);
-		msg_content->ptr = &((uint8_t *)msg->anyPtr)[OFFSET_TO_MSG];
-		msg_content->status = (union status_t *)(&((uint8_t *)msg->anyPtr)[OFFSET_TO_MSG + *msg_content->length]);
-}
 
 void prepareMessageQueue(struct queueMsg_t *msg, struct msg_content_t *msg_content)
 {
@@ -172,7 +143,8 @@ bool controlToken(struct queueMsg_t *msg)
 //--------------------------------------------------------------------------------
 void macReceiverSendMsg(struct queueMsg_t *msg, osMessageQueueId_t queue)
 {
-	osStatus_t status = osMessageQueuePut(queue, msg, osPriorityNormal, osWaitForever);
+	osStatus_t retCode = osMessageQueuePut(queue, msg, osPriorityNormal, osWaitForever);
+	CheckRetCode(retCode,__LINE__,__FILE__,CONTINUE);
 }
 
 

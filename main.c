@@ -415,3 +415,48 @@ int main(void)
   osKernelStart();
 }
 
+bool checkMessage(struct queueMsg_t *msg, struct msg_content_t* msg_content)
+{
+	uint32_t sum = 0;
+	for(uint8_t i=0; i<(*msg_content->length + 3); i++)
+	{
+		sum += ((uint8_t *)msg->anyPtr)[i];
+	}
+	if(msg_content->status->checksum == (sum & 0x3F))
+	{
+		msg_content->status->ack = true;
+		return true;
+	}
+	else
+	{
+		msg_content->status->ack = false;
+		return false;
+	}
+}
+
+void getPtrMessageContent(struct queueMsg_t *msg, struct msg_content_t* msg_content)
+{
+		*msg_content->length = ((uint8_t *)msg->anyPtr)[2];
+		msg_content->control = ((union control_t *)msg->anyPtr);
+		msg_content->ptr = &((uint8_t *)msg->anyPtr)[OFFSET_TO_MSG];
+		msg_content->status = (union status_t *)(&((uint8_t *)msg->anyPtr)[OFFSET_TO_MSG + *msg_content->length]);
+}
+void setPtrMessageContent(struct queueMsg_t *msg, struct msg_content_t* msg_content, uint8_t length)
+{
+	msg_content->length = &((uint8_t *)msg->anyPtr)[2];
+	*msg_content->length = length;
+	msg_content->control = ((union control_t *)msg->anyPtr);
+	msg_content->ptr = &((uint8_t *)msg->anyPtr)[3];
+	msg_content->status = (union status_t *)(&((uint8_t *)msg->anyPtr)[3 + *msg_content->length]);
+
+}
+
+void calculateChecksum(struct queueMsg_t * msg, struct msg_content_t * msg_content)
+{
+	uint32_t sum = 0;
+	for(uint32_t i=0; i<(3 + *msg_content->length); i++)
+	{
+		sum += ((uint8_t *)msg->anyPtr)[i];
+	}
+	msg_content->status->checksum = (sum & 0x3F);
+}

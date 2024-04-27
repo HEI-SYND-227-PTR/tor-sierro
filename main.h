@@ -187,4 +187,10 @@ struct msg_content_t
 	uint8_t * ptr;
 	union status_t * status;
 };
+//function perso
+bool checkMessage(struct queueMsg_t *msg, struct msg_content_t* msg_content);
+void calculateChecksum(struct queueMsg_t * msg, struct msg_content_t * msg_content);
+void getPtrMessageContent(struct queueMsg_t *msg, struct msg_content_t* msg_content);
+void setPtrMessageContent(struct queueMsg_t *msg, struct msg_content_t* msg_content, uint8_t length);
+
 

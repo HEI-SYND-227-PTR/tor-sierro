@@ -31,10 +31,6 @@ void sendTokenList();
 void updateStation(struct tokenManager_t * tokenManager);
 uint8_t getStringLength(uint8_t * stringPtr);
 void copyMsg(struct queueMsg_t * msg, struct queueMsg_t * copy, uint8_t msg_length);
-void getMessageContent2(struct queueMsg_t *msg, struct msg_content_t* msg_content);
-
-//variables globale
-
 
 
 //--------------------------------------------------------------------------------
@@ -56,6 +52,7 @@ void MacSender(void *argument)
 	databackManager.nbrDataBackReceived = 0;
 	databackManager.waitDataBack= false;
 	
+	osStatus_t retCode;
 	
 	
 	while(1)
@@ -63,7 +60,7 @@ void MacSender(void *argument)
 		
 		if(tokenManager.tokenOwned)
 		{
-			if(databackManager.waitDataBack == false)
+			if(databackManager.waitDataBack == false) //you put the waitdataback to false before send it so it don t work
 			{
 				if(osMessageQueueGetCount(queue_macS_sec_id) != 0)
 				{
@@ -78,7 +75,8 @@ void MacSender(void *argument)
 		}
 		else
 		{
-			osMessageQueueGet(queue_macS_id, &msg, NULL, osWaitForever);
+			retCode = osMessageQueueGet(queue_macS_id, &msg, NULL, osWaitForever);
+			CheckRetCode(retCode,__LINE__,__FILE__,CONTINUE);
 			processMessage(&msg, &msg_content, &tokenManager, &databackManager);
 		}
 	}
@@ -90,6 +88,7 @@ void MacSender(void *argument)
 void processMessage(struct queueMsg_t * msg, struct msg_content_t * msg_content, struct tokenManager_t * tokenManager, struct databackManager_t * databackManager)
 {
 	uint8_t * previousAnyPtr = NULL;
+	osStatus_t retCode;
 	switch(msg->type) 
 		{
 			case NEW_TOKEN:
@@ -129,7 +128,7 @@ void processMessage(struct queueMsg_t * msg, struct msg_content_t * msg_content,
 			case DATABACK:
 				
 				//configure msg content 
-				getMessageContent2(msg, msg_content);
+				getPtrMessageContent(msg, msg_content);
 				
 				databackManager->nbrDataBackReceived++; //increase nbr databack msg
 				if(msg_content->status->read == true)
@@ -142,14 +141,20 @@ void processMessage(struct queueMsg_t * msg, struct msg_content_t * msg_content,
 						macSenderSendMsg(tokenManager->token, queue_phyS_id);
 						tokenManager->tokenOwned = false;
 						//clear the copied msg
-						osMemoryPoolFree(memPool, databackManager->msgSavedForDataback.anyPtr);
-						osMemoryPoolFree(memPool, msg->anyPtr);
+						
+						retCode = osMemoryPoolFree(memPool, databackManager->msgSavedForDataback.anyPtr);
+						CheckRetCode(retCode,__LINE__,__FILE__,CONTINUE);
+						
+						retCode = osMemoryPoolFree(memPool, msg->anyPtr);
+						CheckRetCode(retCode,__LINE__,__FILE__,CONTINUE);
 					}
 					else
 					{
 						//send the saved message
 						macSenderSendMsg(&databackManager->msgSavedForDataback, queue_phyS_id);
-						osMemoryPoolFree(memPool, msg->anyPtr);
+						
+						retCode = osMemoryPoolFree(memPool, msg->anyPtr);
+						CheckRetCode(retCode,__LINE__,__FILE__,CONTINUE);
 					}
 				}
 				else
@@ -157,8 +162,12 @@ void processMessage(struct queueMsg_t * msg, struct msg_content_t * msg_content,
 					//station not connected
 					databackManager->waitDataBack = false;
 					databackManager->nbrDataBackReceived = 0;
-					osMemoryPoolFree(memPool, msg->anyPtr);
-					osMemoryPoolFree(memPool, databackManager->msgSavedForDataback.anyPtr);
+					
+					retCode = osMemoryPoolFree(memPool, msg->anyPtr);
+					CheckRetCode(retCode,__LINE__,__FILE__,CONTINUE);
+					
+					retCode = osMemoryPoolFree(memPool, databackManager->msgSavedForDataback.anyPtr);
+					CheckRetCode(retCode,__LINE__,__FILE__,CONTINUE);
 					
 					//send mac error
 					struct queueMsg_t msg_mac_error;
@@ -167,10 +176,7 @@ void processMessage(struct queueMsg_t * msg, struct msg_content_t * msg_content,
 					msg_mac_error.type = MAC_ERROR;
 					uint8_t * error = (uint8_t *) "Station not connected\0";
 					//copy the error in the memory allocation
-					for(uint32_t i=0; i<getStringLength(error); i++)
-					{
-						((uint8_t *)msg_mac_error.anyPtr)[i] = error[i];
-					}
+					memcpy(msg_mac_error.anyPtr, error, getStringLength(error));
 					macSenderSendMsg(&msg_mac_error, queue_lcd_id);
 				}
 				break;
@@ -178,13 +184,17 @@ void processMessage(struct queueMsg_t * msg, struct msg_content_t * msg_content,
 			case START:
 				//connect to the chat
 				gTokenInterface.connected = true;
-				osMemoryPoolFree(memPool, msg->anyPtr);
+			
+				retCode = osMemoryPoolFree(memPool, msg->anyPtr);
+				CheckRetCode(retCode,__LINE__,__FILE__,CONTINUE);
 				break;
 			
 			case STOP:
 				//disconnect ot the chat
 				gTokenInterface.connected = false;
-				osMemoryPoolFree(memPool, msg->anyPtr);	
+			
+				retCode = osMemoryPoolFree(memPool, msg->anyPtr);	
+				CheckRetCode(retCode,__LINE__,__FILE__,CONTINUE);
 				break;
 			
 			case DATA_IND:
@@ -210,8 +220,6 @@ void generateToken(struct queueMsg_t * msg, struct tokenManager_t * tokenManager
 	tokenManager->token->anyPtr = osMemoryPoolAlloc(memPool,osWaitForever);
 	memset((void *)tokenManager->token->anyPtr, 0, TOKENSIZE-2);
 	//generate new token and I owned the token
-	//gTokenInterface.broadcastTime = true;
-	gTokenInterface.connected = true;
 	updateToken(tokenManager);
 	getMyTokenState(tokenManager)->tag = TOKEN_TAG;
 	msg->type = TOKEN;
@@ -222,27 +230,20 @@ void generateFrame(struct queueMsg_t * msg, uint8_t * previousAnyPtr, struct msg
 {
 	previousAnyPtr = msg->anyPtr;
 	msg->anyPtr = osMemoryPoolAlloc(memPool,osWaitForever);
-	memset((void *)msg->anyPtr, 0, MAX_BLOCK_SIZE);
 	
-	//set ptr for content
-	msg_content->length = &((uint8_t *)msg->anyPtr)[2];
-	*msg_content->length = getStringLength(previousAnyPtr);
-	msg_content->control = ((union control_t *)msg->anyPtr);
-	msg_content->ptr = &((uint8_t *)msg->anyPtr)[3];
-	msg_content->status = (union status_t *)(&((uint8_t *)msg->anyPtr)[3 + *msg_content->length]);
+	setPtrMessageContent(msg, msg_content, getStringLength(previousAnyPtr));
 	
 	//set the control
 	msg_content->control->destSapi = msg->sapi;
 	msg_content->control->destAddr = msg->addr;
 	msg_content->control->srcSapi = msg->sapi;
 	msg_content->control->srcAddr = MYADDRESS;
+	
 	//set the string content
-	for(uint32_t i=0; i<*msg_content->length; i++)
-	{
-		((uint8_t *)msg->anyPtr)[i + OFFSET_TO_MSG] = previousAnyPtr[i];
-	}
+	memcpy(&((uint8_t *)msg->anyPtr)[OFFSET_TO_MSG], previousAnyPtr, *msg_content->length);
 	//free the previous ptr
-	osMemoryPoolFree(memPool, previousAnyPtr);
+	osStatus_t retCode = osMemoryPoolFree(memPool, previousAnyPtr);
+	CheckRetCode(retCode,__LINE__,__FILE__,CONTINUE);
 }
 
 //calculate the length with the '\0'
@@ -257,36 +258,13 @@ uint8_t getStringLength(uint8_t * stringPtr)
 	return length+1;
 }
 
-
-void calculateChecksum(struct queueMsg_t * msg, struct msg_content_t * msg_content)
-{
-	uint32_t sum = 0;
-	for(uint32_t i=0; i<(3 + *msg_content->length); i++)
-	{
-		sum += ((uint8_t *)msg->anyPtr)[i];
-	}
-	msg_content->status->checksum = (sum & 0x3F);
-}
-
 void copyMsg(struct queueMsg_t * msg, struct queueMsg_t * copy, uint8_t msg_length)
 {
 	copy->anyPtr = osMemoryPoolAlloc(memPool,osWaitForever);
-	memset((void *)msg->anyPtr, 0, MAX_BLOCK_SIZE);
 	copy->addr = msg->addr;
 	copy->sapi = msg->sapi;
 	copy->type = msg->type;
-	for(uint32_t i=0; i<(msg_length + 4); i++)
-	{
-		((uint8_t *)copy->anyPtr)[i] = ((uint8_t *)msg->anyPtr)[i];
-	}
-}
-
-void getMessageContent2(struct queueMsg_t *msg, struct msg_content_t* msg_content)
-{
-		*msg_content->length = ((uint8_t *)msg->anyPtr)[2];
-		msg_content->control = ((union control_t *)msg->anyPtr);
-		msg_content->ptr = &((uint8_t *)msg->anyPtr)[OFFSET_TO_MSG];
-		msg_content->status = (union status_t *)(&((uint8_t *)msg->anyPtr)[OFFSET_TO_MSG + *msg_content->length]);
+	memcpy((void *)copy->anyPtr,(const void *) msg->anyPtr, msg_length);
 }
 
 //--------------------------------------------------------------------------------
@@ -297,7 +275,8 @@ void getMessageContent2(struct queueMsg_t *msg, struct msg_content_t* msg_conten
 //free the part of msg
 void macSenderSendMsg(struct queueMsg_t * msg, osMessageQueueId_t queueId)
 {
-	osMessageQueuePut(queueId, msg, osPriorityNormal, osWaitForever);
+	osStatus_t retCode = osMessageQueuePut(queueId, msg, osPriorityNormal, osWaitForever);
+	CheckRetCode(retCode,__LINE__,__FILE__,CONTINUE);
 }
 
 //--------------------------------------------------------------------------------
@@ -314,13 +293,15 @@ void sendSecondaryQueue()
 //saved message getted from the mac sender queue when there isn't token
 void saveMsg(struct queueMsg_t * msg)
 {
-	osMessageQueuePut(queue_macS_sec_id, msg, osPriorityNormal, osWaitForever);
+	osStatus_t retCode = osMessageQueuePut(queue_macS_sec_id, msg, osPriorityNormal, osWaitForever);
+	CheckRetCode(retCode,__LINE__,__FILE__,CONTINUE);
 }
 
 //get saved message 
 void getSavedMsg(struct queueMsg_t * msg)
 {
-	osMessageQueueGet(queue_macS_sec_id, msg, NULL, osWaitForever);
+	osStatus_t retCode = osMessageQueueGet(queue_macS_sec_id, msg, NULL, osWaitForever);
+	CheckRetCode(retCode,__LINE__,__FILE__,CONTINUE);
 }
 
 //--------------------------------------------------------------------------------
@@ -347,10 +328,7 @@ void sendTokenList()
 
 void updateStation(struct tokenManager_t * tokenManager)
 {
-	for(uint32_t i=0; i<MAX_STATION; i++)
-	{
-		gTokenInterface.station_list[i] = ((uint8_t *)tokenManager->token->anyPtr)[i+1];
-	}
+	memcpy(gTokenInterface.station_list, &((uint8_t *)tokenManager->token->anyPtr)[1], MAX_STATION);
 	sendTokenList();
 }
 
