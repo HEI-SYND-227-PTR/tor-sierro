@@ -20,7 +20,6 @@ void MacReceiver(void *argument)
 	osStatus_t retCode;
 	while(true)
 	{
-		osDelay(300);
 		//read the input queue
 		retCode = osMessageQueueGet(queue_macR_id, &msg, NULL, osWaitForever);
 		CheckRetCode(retCode,__LINE__,__FILE__,CONTINUE);
