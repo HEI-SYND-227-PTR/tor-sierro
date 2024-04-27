@@ -32,6 +32,7 @@ void sendTokenList();
 void updateStation(struct tokenManager_t * tokenManager);
 uint8_t getStringLength(uint8_t * stringPtr);
 void copyMsg(struct queueMsg_t * msg, struct queueMsg_t * copy, uint8_t msg_length);
+bool verifyDestSapiActivate(struct tokenManager_t * tokenManager, struct queueMsg_t * msg);
 
 
 //--------------------------------------------------------------------------------
@@ -231,10 +232,20 @@ void processMessage(struct queueMsg_t * msg, struct msg_content_t * msg_content,
 // DATA_IND
 //--------------------------------------------------------------------------------			
 			case DATA_IND:
-				generateFrame(msg, previousAnyPtr, msg_content);
-				calculateChecksum(msg, msg_content);
-				//save message
-				saveMsg(msg);
+				if(verifyDestSapiActivate(tokenManager, msg) || msg->sapi == TIME_SAPI)
+				{
+					generateFrame(msg, previousAnyPtr, msg_content);
+					calculateChecksum(msg, msg_content);
+					//save message
+					saveMsg(msg);
+				}
+				else
+				{
+					//free msg and don't send it
+					retCode = osMemoryPoolFree(memPool, msg->anyPtr);	
+					CheckRetCode(retCode,__LINE__,__FILE__,CONTINUE);
+				}
+				
 				break;
 //--------------------------------------------------------------------------------
 // DEFAULT
@@ -380,6 +391,11 @@ void updateStation(struct tokenManager_t * tokenManager)
 {
 	memcpy(gTokenInterface.station_list, &((uint8_t *)tokenManager->token.anyPtr)[1], MAX_STATION);
 	sendTokenList();
+}
+
+bool verifyDestSapiActivate(struct tokenManager_t * tokenManager, struct queueMsg_t * msg)
+{
+	return ((struct token_t *)tokenManager->token.anyPtr)->states[msg->addr].chat;
 }
 
 
