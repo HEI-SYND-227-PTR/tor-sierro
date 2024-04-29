@@ -1,6 +1,6 @@
 #include "main.h"
 #include <stdio.h>
-
+#include <string.h>
 struct tokenManager_t
 {
 	bool tokenOwned;
@@ -28,7 +28,7 @@ void updateToken(struct tokenManager_t * tokenManager);
 void generateToken(struct queueMsg_t * msg, struct tokenManager_t * tokenManager);
 void generateFrame(struct queueMsg_t * msg, uint8_t * previousAnyPtr, struct msg_content_t * msg_content);
 void calculateChecksum(struct queueMsg_t * msg, struct msg_content_t * msg_content);
-void sendTokenList();
+void sendTokenList(void);
 void updateStation(struct tokenManager_t * tokenManager);
 uint8_t getStringLength(uint8_t * stringPtr);
 void copyMsg(struct queueMsg_t * msg, struct queueMsg_t * copy, uint8_t msg_length);
@@ -106,7 +106,7 @@ void processMessage(struct queueMsg_t * msg, struct msg_content_t * msg_content,
 				}
 				else
 				{
-					printf("-token already there");
+					printf("-token already there\r\n");
 				}
 				break;
 //--------------------------------------------------------------------------------
@@ -253,7 +253,6 @@ void generateToken(struct queueMsg_t * msg, struct tokenManager_t * tokenManager
 	tokenManager->token.anyPtr = osMemoryPoolAlloc(memPool,osWaitForever);
 	memset((void *)tokenManager->token.anyPtr, 0, TOKENSIZE-2);
 	//generate new token and I owned the token
-	
 	updateToken(tokenManager);
 	getMyTokenState(tokenManager)->tag = TOKEN_TAG;
 	msg->type = TOKEN;

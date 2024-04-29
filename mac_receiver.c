@@ -18,7 +18,7 @@ void MacReceiver(void *argument)
 	struct queueMsg_t msg_to_app;
 	struct msg_content_t msg_content;
 	osStatus_t retCode;
-	while(true)
+	while(true) 
 	{
 		//read the input queue
 		retCode = osMessageQueueGet(queue_macR_id, &msg, NULL, osWaitForever);
