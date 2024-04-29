@@ -18,7 +18,7 @@
 //--------------------------------------------------------------------------------
 #define DEBUG_MODE				0				// mode is physical line (0) or debug (1)
 #define MYADDRESS   			1					// your address choice (table number)
-#define MAX_BLOCK_SIZE 		100				// size max for a frame
+#define MAX_BLOCK_SIZE 		2				// size max for a frame
 #define MAX_STATION 			16				// number max of station in the network
 //perso
 #define TIMEOUT_QUEUE 		0U
@@ -160,10 +160,10 @@ union control_t
 	{
 		uint8_t srcSapi : 3;
 		uint8_t srcAddr : 4;
-		bool_t bit15 : 1;
+		bool_t bit7 : 1;
 		uint8_t destSapi : 3;
 		uint8_t destAddr : 4;
-		bool_t bit7 : 1;
+		bool_t bit15 : 1;
 	};
 	uint16_t raw : 16;
 };

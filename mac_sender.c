@@ -142,14 +142,14 @@ void processMessage(struct queueMsg_t * msg, struct msg_content_t * msg_content,
 				//configure msg content 
 				getPtrMessageContent(msg, msg_content);
 				
-				if(msg_content->control->srcAddr == MYADDRESS || msg_content->control->destAddr == BROADCAST_ADDRESS)
+				if(msg_content->control->srcAddr == MYADDRESS)
 				{
 					//test read and ack
 					if(msg_content->status->read == true)
 					{
 						if(msg_content->status->ack == true)
 						{
-							//the message has been correctly transmit
+							//if waiting a return message
 							if(databackManager->waitDataBack)
 							{
 								macSenderSendMsg(&tokenManager->token, queue_phyS_id);
@@ -157,20 +157,13 @@ void processMessage(struct queueMsg_t * msg, struct msg_content_t * msg_content,
 								//Free memory of message saved
 								retCode = osMemoryPoolFree(memPool, databackManager->msgSavedForDataback.anyPtr);
 								CheckRetCode(retCode,__LINE__,__FILE__,CONTINUE);
+								databackManager->waitDataBack = false;
 							}
-							if(msg_content->control->srcAddr == MYADDRESS)
-							{
-								//Free memory of actual message
-								retCode = osMemoryPoolFree(memPool, msg->anyPtr);
-								CheckRetCode(retCode,__LINE__,__FILE__,CONTINUE);
-							}
-							else
-							{
-								msg->type = TO_PHY;
-								macSenderSendMsg(msg, queue_phyS_id);
-							}
+
+							//Free memory of actual message
+							retCode = osMemoryPoolFree(memPool, msg->anyPtr);
+							CheckRetCode(retCode,__LINE__,__FILE__,CONTINUE);
 							
-							databackManager->waitDataBack = false;
 						}
 						else
 						{
@@ -279,6 +272,8 @@ void generateFrame(struct queueMsg_t * msg, uint8_t * previousAnyPtr, struct msg
 	msg_content->control->destAddr = msg->addr;
 	msg_content->control->srcSapi = msg->sapi;
 	msg_content->control->srcAddr = MYADDRESS;
+	msg_content->control->bit15 = 0;
+	msg_content->control->bit7 = 0;
 	
 	//set the status
 	if(msg->sapi == TIME_SAPI)
