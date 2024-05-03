@@ -1,5 +1,4 @@
 #include "main.h"
-#include <stdio.h>
 
 bool controlToken(struct queueMsg_t *msg);
 void controlSrcAddr(struct queueMsg_t *msg);
@@ -17,8 +16,10 @@ void MacReceiver(void *argument)
 	struct queueMsg_t msg;
 	struct queueMsg_t msg_to_app;
 	struct msg_content_t msg_content;
+	
 	osStatus_t retCode;
-	while(true) 
+	
+	for(;;) 
 	{
 		//read the input queue
 		retCode = osMessageQueueGet(queue_macR_id, &msg, NULL, osWaitForever);
@@ -34,6 +35,9 @@ void MacReceiver(void *argument)
 		}
 		else
 		{
+//----------------------------------------------------------------------------
+//	Manage message								
+//----------------------------------------------------------------------------
 			//get control and status value of the msg
 			getPtrMessageContent(&msg, &msg_content);
 			
@@ -47,7 +51,7 @@ void MacReceiver(void *argument)
 						generateFrameApp(&msg, &msg_to_app, *msg_content.length);
 						msg_to_app.type = DATA_IND;
 						prepareMessageQueue(&msg_to_app, &msg_content);
-						macReceiverSendMsg(&msg_to_app, queue_timeR_id); //send it
+						macReceiverSendMsg(&msg_to_app, queue_timeR_id);
 					}
 
 					else if((msg_content.control->destSapi == CHAT_SAPI))
@@ -75,8 +79,6 @@ void MacReceiver(void *argument)
 //--------------------------------------------------------------------------------
 // message management
 //--------------------------------------------------------------------------------
-
-
 void generateFrameApp(struct queueMsg_t *msg, struct queueMsg_t *msg_to_app, uint8_t msg_length)
 {
 	msg_to_app->anyPtr = osMemoryPoolAlloc(memPool,osWaitForever);
@@ -127,8 +129,14 @@ bool controlToken(struct queueMsg_t *msg)
 //--------------------------------------------------------------------------------
 void macReceiverSendMsg(struct queueMsg_t *msg, osMessageQueueId_t queue)
 {
-	osStatus_t retCode = osMessageQueuePut(queue, msg, osPriorityNormal, osWaitForever);
+	osStatus_t retCode = osMessageQueuePut(queue, msg, osPriorityNormal, 0);
 	CheckRetCode(retCode,__LINE__,__FILE__,CONTINUE);
+	if(retCode != osOK)
+	{
+			//Free memory of actual message
+			retCode = osMemoryPoolFree(memPool, msg->anyPtr);
+			CheckRetCode(retCode,__LINE__,__FILE__,CONTINUE);
+	}
 }
 
 

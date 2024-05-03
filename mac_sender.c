@@ -1,6 +1,5 @@
 #include "main.h"
-#include <stdio.h>
-#include <string.h>
+
 struct tokenManager_t
 {
 	bool tokenOwned;
@@ -54,10 +53,8 @@ void MacSender(void *argument)
 	
 	osStatus_t retCode;
 	
-	
-	while(1)
+	for(;;)
 	{
-		
 		if(tokenManager.tokenOwned && !databackManager.waitDataBack)
 		{
 			if(osMessageQueueGetCount(queue_macS_sec_id) != 0)
@@ -87,7 +84,7 @@ void processMessage(struct queueMsg_t * msg, struct msg_content_t * msg_content,
 	uint8_t * previousAnyPtr = NULL;
 	osStatus_t retCode;
 	switch(msg->type) 
-		{
+	{
 //--------------------------------------------------------------------------------
 // NEW TOKEN
 //--------------------------------------------------------------------------------
@@ -228,8 +225,7 @@ void processMessage(struct queueMsg_t * msg, struct msg_content_t * msg_content,
 				{
 					generateFrame(msg, previousAnyPtr, msg_content);
 					calculateChecksum(msg, msg_content);
-					//save message
-					saveMsg(msg);
+					saveMsg(msg); //put message in the secondary queue
 				}
 				else
 				{
@@ -321,8 +317,14 @@ void copyMsg(struct queueMsg_t * msg_to_copy, struct queueMsg_t * new_msg, uint8
 //free the part of msg
 void macSenderSendMsg(struct queueMsg_t * msg, osMessageQueueId_t queueId)
 {
-	osStatus_t retCode = osMessageQueuePut(queueId, msg, osPriorityNormal, osWaitForever);
+	osStatus_t retCode = osMessageQueuePut(queueId, msg, osPriorityNormal, 0);
 	CheckRetCode(retCode,__LINE__,__FILE__,CONTINUE);
+	if(retCode != osOK)
+	{
+			//Free memory of actual message
+			retCode = osMemoryPoolFree(memPool, msg->anyPtr);
+			CheckRetCode(retCode,__LINE__,__FILE__,CONTINUE);
+	}
 }
 
 //--------------------------------------------------------------------------------
@@ -348,8 +350,14 @@ void sendSecondaryQueue(struct databackManager_t * databackManager)
 //saved message getted from the mac sender queue when there isn't token
 void saveMsg(struct queueMsg_t * msg)
 {
-	osStatus_t retCode = osMessageQueuePut(queue_macS_sec_id, msg, osPriorityNormal, osWaitForever);
+	osStatus_t retCode = osMessageQueuePut(queue_macS_sec_id, msg, osPriorityNormal, 0);
 	CheckRetCode(retCode,__LINE__,__FILE__,CONTINUE);
+	if(retCode != osOK)
+	{
+			//Free memory of actual message
+			retCode = osMemoryPoolFree(memPool, msg->anyPtr);
+			CheckRetCode(retCode,__LINE__,__FILE__,CONTINUE);
+	}
 }
 
 //get saved message 
